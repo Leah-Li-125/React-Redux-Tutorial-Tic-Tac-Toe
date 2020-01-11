@@ -1,5 +1,5 @@
 import React from 'react';
-import Square from './square';
+import Square from './Square';
 
 //0. 这个class render了一个div，这个div下面有四个div，第一个是它的status，其他三个就是它三个squares组成的一个row，共三个row div
 
