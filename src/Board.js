@@ -350,13 +350,16 @@ return (
   /-- 再具体演示下render以及第一次render也就是mount的全过程：--/
   找root，第一次什么都没有->因为index.js，去找root里插入的App
   ->在App.js里发现，有一个Board Comp
-  ->去Board.js找它render（）里要return的内容
-  ->然后把return（）里的内容render到什么都没有的root div里
+  -> 去Board.js里, 先render它的constructor
+  -> 再找它render（）里要return的内容
+  -> 然后把return（）里的内容render到什么都没有的root div里
   以上这个流程我们叫做render，
   而第一次render comp的过程，就是我们一直说的mount。
 
 那么componentDidMount()里的内容，
 顾名思义，就是在第一次render后，也就是mount这个过程完成后要运行的代码！
+流程就是 constructor -> render -> componentDidMount
+在didMount里，best practice是去set up resource, 或者initial request等
 
 /----   componentDidUpdate()   ----/
 还有mount相关的另一个lifecyle method，
@@ -388,7 +391,7 @@ react就会在父级（最顶层）render的过程中，先去找子级（一层
 也就是父级（最顶层）的comp update的完成，是基于它底下子级（一层层往下找，直到最底层）的update完成才能完成的
 （这里要注意的是：只有class comp有lifecycle！functionnal comp没有lifecycle！！！）
 
-/-- 举例说明下前两个最常用的lifecycle methods的best practice --/
+/-- 再举例说明下前两个最常用的lifecycle methods的best practice --/
 比较常见的用法有：向API取数据，就可以放在componentDidMount()里。
 api取数据的是不能放在render里的，否则每一次render也就是每一次update的时候都会发一次请求，
 那会有多慢，所以best pratice：把api请求数据的内容，放在componentDidMount()里。
@@ -451,6 +454,8 @@ componentWillUnmount()
 而如果是react自己的event handler，它是不需要解绑的，你如果想让它的某个comp的click disable，
 就在handClick（）里写一个逻辑，让它不要运行state的更新就行，
 比如之前做过的那个如果state已经有值，就直接return，不执行下方有关state更新的操作
+
+还可以做一些cancel requests，也就是把那些在DidMount里initialize的requests cancel掉。
 */
 
 /*
@@ -468,6 +473,88 @@ componentWillUnmount()
           }
   );
 如果想在render后跳出alert，那就把这个部分，写到componentDidUpdate（）里。
+*/
+
+/*
+/-----------   React 2nd Class 知识点总结：   -----------/
+
+/---  第一点： componenet communication  ---/
+comps之间要communicate的话，只有一个渠道：
+only one way from parent to child by using props to pass data down to child
+
+但如果想要通过child去update parent的state的话，
+就需要从parent那边pass一个callback function to child（就像这个游戏里的handleClick（）），
+然后，child在onClick的时候，会call那个callback函数，从而update parent的state。
+
+如果是siblings的话，也是不能直接communicate，需要有一个共同的parent来hold the state，
+然后siblings之间才能通过这个存有所有siblings state的共同parent，来拿取其他siblings的state。
+这种解决siblings之间互相交流的方法叫做：lift state up (to a common parent),具体步骤如下：
+- create container as parent comp (Board Comp)
+- container comp(Board comp) is responsible for managing state
+- pass down data in state to corresponding children via props(child-siblings: 9 Square comps)
+- every time state needs upadte， use setState in parent，
+  and then parent will rerender and pass down new data to children to display 
+
+  Board.js:
+    ...
+    handleClick = (index) => {
+      ...
+      const squares = [...this.state.squares];            
+      squares[index] = this.state.isXNext ? 'X' : 'O';
+      this.setState(state => ({                         //在parent里定义的handleClick callback fn，当child的onClick触发而call了这个fn后，
+          squares,                                        将会用setState来update state，然后再通过props将new state传给children并render出来
+          ...
+      ...    
+    }
+    ...
+    renderSquare(index) {
+      return <Square 
+      value={this.state.squares[index]}                 //这里演示了如何通过renderSquare（）来把Board里的state值传给Square comps的
+      handleClick={()=>this.handleClick(index)} />      //也演示了如何把一个callback fn传给child，从而实现child来upadte parent‘s state的
+    }	
+    render() {
+      ...
+      <div className="board-row">
+        {this.renderSquare(0)}                          //在parent的rendering中，调用renderSqaure（），从而进入children的rendering，同时把props带给了children   
+        ...
+      </div>
+      ...
+    }
+  Square.js:
+    ...
+    render() {
+          return (
+              <button
+                  className="square"
+                  onClick={this.props.handleClick}     //通过onClick来call传过来的这个callback fn，从而update parent的state
+              >
+                  {this.props.value}                   //这里接收了从parent传下来的props里的state
+              </button>
+          );
+      }
+
+这样的单向数据流的好处：很容易debug，设计也会容易。
+双向的话，很容易child的state改了，parent的也改了，从而变得复杂，debug也会变得很难。
+
+/ ---   React自己的Event handling   --- /
+onClick、onSubmit等，基本上能想到的和原生html类似的handler都有。
+可以作为一个comp method直接define
+但有一个差别：就是需要用arrow function去wrap handler，
+从而使this直接指向comp，这样就不需要比较麻烦的bind.this的方法，强行让this指向comp
+（具体这部分的详细阐述参考Square.js里的note 8.2）
+
+/ --- Synthetic Event --- /
+- the event handler will be passed an instance of SytheticEvent
+- a wrapper for browser native event object
+  - deal with cross-browser compatibility
+  - allow control DOM event flow
+      <a onClick = {(event) => {//event.target means this here//}} />
+      上面这个看起来是html其实是jsx，所以要用event.target来取被点击的element，
+      因为之前也说过，onClick（）是react自己的fn，它没有bind this，所以this这里的话是undefined
+这有一些api的区别，课程中常用的会讲到，但不常用的需要去查react文档，因为event太多了，特殊的情况只能查文档。
+这里记住就是：你在react里，绑了一个onClick（），你接收了一个event，它是synthetic event，合成的event，
+它是native event object的一个wrapper，大部分是一样的，但有些使用上的小区别。
+具体event上面有些什么东西，怎么去用，还是要查文档。
 */
 
 import React from 'react';
