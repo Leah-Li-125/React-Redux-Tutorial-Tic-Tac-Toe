@@ -260,7 +260,6 @@ class Square extends React.Component {
 
 export default Square;
 
-
 step1-8: 重要总结！！！！！
 在react里，你想要render出一个component的状态的话，只有两个方法：
 一种是： 改变它的props：在改变了它的props之后，它的component里回从新render，从而更新component里的内容。
@@ -274,30 +273,135 @@ state：一定程度上也是read-only。除了initial state可以赋值以外�
 所以当你发现无论怎么点击你都无法改变comp的内容，那就想想：你的点击改了它的state吗？改了它的props吗？如果你的点击这两个都没有改动的话，那它一定不会更新。
 */
 
-import React from 'react';
+/*
+Step 9: lift state up
+现在每一个square之间是sibling关系，他们互相之间不知道对方的state是什么，
+他们自己本身也不可以传递props，只有父级可以给子级传props。
+所以我们要给他们创建一个共同的父级，让这个父级统一存储他们的state，
+如果想知道同级的sibling的state，就从共有的父级那里拿state就好。
+所以我们现在要把state lift up：
+从我们的Square comps（子级） 提升到 Board comp（父级）
+也就是把以前Square里的state，提升到Board这个父级comp里。
 
+(去Board.js里继续...)
+
+9.2(cont'd) 由于Square的state现在要通过父级传过来，
+所以step8之前，设置Square state的步骤就不需要了。
+把state改为props， onClick里也先清空，一会再写：
 class Square extends React.Component {
-	constructor(props) {
-		super(props);
-
-		this.state = {
-		  	value: null,
-		};
-    }
-
-    handleClick = () => {
-        this.setState(
-            state => ({ value: state.value === 'X' ? '' : 'X' })
-        )
-    }
-
     render() {
 		return (
-            <button onClick = { this.handleClick } className = "square">
-                {this.state.value}
+            <button onClick = { () => {} } className = "square">
+                {this.props.value}                      //9.2
             </button>
 		);
 	}
+}
+
+(去Board.js里继续...9.3)
+
+9.4 接下来我们来处理刚才清空的event handler。
+之前的event会把Square自己的state改掉，
+但现在的state不再在Square这里了，而在父级那边，
+那么怎么通过子级Square的onClick（）去改父级Board里的state呢？
+首先我们先去Board父级那里改Board的state，(去Board.js里继续...)
+
+9.6 在onClick里使用传过来的prop funciton：
+但我们发现我们传过来的funciton，需要有一个index的参数，才能执行，所以我们还需要再回去处理下如何把index传过来的问题。
+(去Board.js里继续...)
+处理好后，把this.props.handleClick传进onCLick（），如下：
+    <button onClick = {this.props.handleClick} className = "square">
+        {this.props.value}
+    </button>
+
+然后去测试下是否通过step9的改造，还是能把Board里的state传入Square，并更改与state array里index相对应的Square的state。
+测试结束，没有问题，Square现在只有props没有state了，
+Board里有一个state的array，我点击哪个Square，相对应的state array里的某个index的state就会变成X。
+*/
+
+/*
+Step 10: Change class component to functional compnent
+10.1
+那么我们什么时候用class comp，什么时候用functional comp呢？
+如果只是单纯的接受props不需要state的话，functional comp；
+需要state，则class comp。
+
+这是刚刚写的class comp Square，
+这里这个Sqaure comp现在不需要state了，只接受父级传的props，
+所以应该将以下代码改为functional
+    class Square extends React.Component {
+
+        render() {
+            return (
+                <button onClick = {this.props.handleClick} className = "square">
+                    {this.props.value}
+                </button>
+            );
+        }
+    }
+
+-->>将它改写回functional comp, 如下：
+    function Square(props) {
+        return (
+            <button
+                className="square"
+                onClick={props.handleClick}
+            >
+                {props.value}
+            </button>
+        );
+    }
+注意：这里只需要return，不需要render。
+而且不需要加this，传进来的props是什么就直接用props里的prop就好了
+然后就去再测试下，每次refactor完，都去测试下有没有把之前的功能block掉。ok，测了没问题。
+
+接下来我们发现，我们要完善的功能：第一个click，是X，那下一个就轮到了O，
+所以我们需要去Board里看看如何实现这个功能，因为现在所有的state都在Board comp里定义
+(去Board.js里继续...Step 11)
+ */
+
+import React from 'react';
+
+
+// -----    Functinal comp  ------ //
+// function Square(props) {
+//     return (
+//         <button
+//             className="square"
+//             onClick={props.handleClick}
+//         >
+//             {props.value}
+//         </button>
+//     );
+// }
+
+
+// -----     Class comp     ------//
+class Square extends React.Component {
+    componentDidMount() {
+        this.count = setInterval(() => console.log('Counting'),1000)
+    }
+
+    componentDidUpdate() {
+        console.log('square update:', this.props.value)
+    }
+
+    componentWillUnmount() {
+        console.log('will unmount:', this.props.value);
+        clearInterval(this.count);
+    }
+
+    render() {
+        return (
+            <button
+                className="square"
+                onClick={this.props.handleClick}
+            >
+                {this.props.value}
+            </button>
+        );
+    }
+    
 }
 
 export default Square;
