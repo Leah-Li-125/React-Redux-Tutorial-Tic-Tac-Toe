@@ -559,46 +559,39 @@ onClick、onSubmit等，基本上能想到的和原生html类似的handler都有
 
 import React from 'react';
 import Square from './Square';
+import { connect } from 'react-redux';
+import { updateSquareAction } from '../src/redux/actions/updateBoardActions'
   class Board extends React.Component {
-    constructor(props) {
-      super(props);
-
-      this.state = {
-        squares: Array(9).fill(null),
-        isXNext: true
-      };
-    }
+    
     componentDidUpdate() {console.log('update')};
 
     componentDidMount() {console.log('mount')};
 
     handleClick = (index) => {
-      const hasValue = !!this.state.squares[index];
-      const winner = calculateWinner(this.state.squares);
+      const { squares } = this.props;
+      const hasValue = !!squares[index];
+      const winner = calculateWinner(squares);
       if (hasValue || winner) return;                      
-      const squares = [...this.state.squares];            
-      squares[index] = this.state.isXNext ? 'X' : 'O';
-      this.setState(state => ({
-          squares,
-          isXNext: !state.isXNext
-          }), () => {
-              const winner = calculateWinner(this.state.squares); 
-              if (winner) alert(`Winner is ${winner}`)
-              }
-      );
+      // const squares = [...this.state.squares];       
+      // squares[index] = this.props.isXNext ? 'X' : 'O';
+      this.props.updateSquare(index);
     }
 
     renderSquare(index) {
-      return <Square value={this.state.squares[index]} handleClick={()=>this.handleClick(index)} />        
+      return <Square value={this.props.squares[index]} handleClick={()=>this.handleClick(index)} />        
     }	
     render() {
-      const winner = calculateWinner(this.state.squares);
-      const status = winner ? `Winner: ${winner}` : `Next player: ${this.state.isXNext ? 'X' : 'O'}`;
+      const winner = calculateWinner(this.props.squares);
+      const status = winner ? `Winner: ${winner}` : `Next player: ${this.props.isXNext ? 'X' : 'O'}`;
       return (
       <div>
         <div className="status">{status}</div> 
         {
-          !winner && (
+          winner && alert(`Winner is ${winner}`) 
+        }
+        {
+          !winner
+            && (
             <>
               <div className="board-row">
                 {this.renderSquare(0)}                 
@@ -622,7 +615,82 @@ import Square from './Square';
       )
     }
   }
-export default Board;
+
+const mapStateToProps = state => {
+  return {
+    isXNext: state.board.isXNext,
+    squares: state.board.squares
+  };
+};
+
+const mapDispatchToProps = dispatch => {
+  return {
+    updateSquare: index => dispatch(updateSquareAction(index))
+  };
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(Board);
+/*
+Redux Step 4:
+  firstly, to import a connect fn from react-redux library; 
+  then go to export default Board to use the connect fn:
+    we call this connect fn there -> 
+    then this fn return another fn so we put the Board into it
+    -> connect() need to receive at least one argument:
+        1st arg mapStateToProps() is a fn which is to map the whole store object to certain props value you need:
+        this fn will receive the state (the global store) as an arg,
+        and then return an object of props which you will receive in Board comp - here is only state.board.isXNext.
+        so now in Board comp, we use this.props.isXNext to replace all this.state.isXNext,
+        and isXNext in react state array can be deleted as well.
+
+        2nd arg mapDispatchToProps() is a fn which will receive a param - dispatch,
+        and then return same certain props object value as mapStateToProps(),
+        here is to dispatch the action typed UPDATE_SQUARE, so here the key will be a fn named updateSqaure,
+        and this updateSqaure fn will use redux store's dispatch() fn to dispatch an action typed UPDATE_SQUARE,
+        (so we need to import the action creater updateSqaureAction first)
+        howerver, the imported action creater is a fn but dispatch() need to dispatch an action which is an object,
+        so we need to call this action creater fn to get the action, 
+        meanwhile the fn need an index as a param to let it know which square is clicked,
+        so we just pass index as a param to the dispatch() fn, 
+        then the creater fn will get the index and return an action object.
+        After that, we go to handleClick() - where to trigger this dipatch - to add this.props.updateSquare(index) in
+
+!!  Summarize Redux Steps:  !!
+create a boardReducer to change isXNext state in Store if the reducer gets an action typed UPDATE_SQUARE
+-> in Board comp, using the mapDispatchToProps() to make a prop updateSquare(),
+thus, when we click one square, this.props.updateSquare() in handleClick() will trigger dispatch() 
+to call updateSquareAction() in updateBoardActions.js,
+then to dispatch an action typed UPDATE_SQUARE to any reducers
+-> the boardReducer now is listening and catch the aciton typed UPDATE_SQUARE dipatched,
+so the reducer update the state of isXNext to the store
+-> the store is updated so it will notisfy the react by using the mapStateToProps() 
+to let react know the prop value of isXNext now, ie. isXNext: state.board.isXNext
+-> then using this.props.isXNext to rerender the Board react comp 
+(that is, finaly, all certain updated props value - isXNext, squares, updateSquare(index)
+- will get together to be a part of the update store 
+and then use connect() to notisfy the store to the observer - Board - who is observing the global store,
+then trigger Board to rerender)
+
+ok it is done for the state isXNext, we still have another state squares need to pass all around in react now,
+so go to use Redux to deal with that state sqaures now! (repeat steps of isXNext state)
+    NOTE: the action.index passing flow: 
+          handleClick(index) 
+          -> updateSquare(index) 
+          -> updateSqaureAction(index) returns an action with index
+          -> boardReducer(.., action){..square[action.index]..}
+
+store = {
+  board = {
+    isXNext: false,
+    squares: null,
+    updateSquare(index): {
+      type: UPDATE_SQUARE,
+      index: index
+    }
+  },
+
+}
+*/ 
 
 function calculateWinner(squares) {
 	const lines = [
