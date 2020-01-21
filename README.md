@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
@@ -66,3 +67,7 @@ This section has moved here: https://facebook.github.io/create-react-app/docs/de
 ### `npm run build` fails to minify
 
 This section has moved here: https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify
+=======
+# React-Redux-Tutorial-Tic-Tac-Toe
+React tutorial: Tic Tac Toe and Redux with comment
+>>>>>>> 16ca8fa13eaf826df105a8acbb94a5654a939df2
